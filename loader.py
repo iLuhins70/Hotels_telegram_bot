@@ -1,7 +1,10 @@
 import os
 from dotenv import load_dotenv
 from telebot import TeleBot
+from loguru import logger
 
+logger.add('debug.log', format='{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}:{function}:{line} | {message}',
+           level='DEBUG', rotation='1000 KB', compression='zip', encoding='UTF-8')
 
 load_dotenv()
 bot = TeleBot(os.getenv('token'))

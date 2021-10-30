@@ -1,11 +1,13 @@
 from telebot import types
+from loader import logger
 
 
+@logger.catch
 def search(bot, message, user_list, from_user):
     """
     user_list[from_user].query.status:
     0 - начало поиска, ждем ввода города
-    1 - введен город для поиска, ишем и выводим список найденных городов (вывод кнопок)
+    1 - введен город для поиска, ищем и выводим список найденных городов (вывод кнопок)
     2 - выбран город из списка, спросим количество отелей
     3 - введено количество отелей, необходимо проверить ввод
     4 - введено правильное количество отелей, спросим про необходимость вывода фотографий (вывод кнопок)
@@ -29,27 +31,23 @@ def search(bot, message, user_list, from_user):
         if current_command == '/bestdeal':
             if user_list[from_user].query.distance.get('max'):
                 user_list[from_user].query.status = 3
-                bot.send_message(from_user,
-                                 'bestdeal Введите количество отелей, которые необходимо вывести в результате (не больше 25)')
-
+                bot.send_message(from_user, 'bestdeal Введите количество отелей, которые необходимо вывести '
+                                            'в результате (не больше 25)')
             elif user_list[from_user].query.price.get('max'):
                 delta_distance(message, bot, user_list, from_user)
             elif user_list[from_user].query.city:
-
                 delta_price(message, bot, user_list, from_user)
         else:
             user_list[from_user].query.status = 3
             bot.send_message(from_user,
                              'Введите количество отелей, которые необходимо вывести в результате (не больше 25)')
     elif user_list[from_user].query.status == 3:
-
         number_city(message, bot, user_list, from_user)
     elif user_list[from_user].query.status == 4:
         user_list[from_user].query.status = 5
-        photo_question(message, bot, user_list, from_user)
+        photo_question(bot, from_user)
     elif user_list[from_user].query.status == 5:
         user_list[from_user].query.status = 6
-        print('number_photo', user_list[from_user].query.number_photo)
         if user_list[from_user].query.number_photo is None:
             user_list[from_user].query.status = 7
             search_hotel(message, bot, user_list, from_user)
@@ -62,10 +60,12 @@ def search(bot, message, user_list, from_user):
         search_hotel(message, bot, user_list, from_user)
 
 
+@logger.catch
 def name_city(message, bot, user_list, from_user):
     user_list[from_user].query.search_cities(message, bot, user_list, from_user)
 
 
+@logger.catch
 def delta_price(message, bot, user_list, from_user):
     currency_str = user_list[from_user].query.locale['currency_str']
     if not user_list[from_user].query.price:
@@ -99,6 +99,7 @@ def delta_price(message, bot, user_list, from_user):
             bot.send_message(from_user, 'введите количество цифрами')
 
 
+@logger.catch
 def delta_distance(message, bot, user_list, from_user):
     distance = user_list[from_user].query.locale['distance']
     if not user_list[from_user].query.distance:
@@ -135,6 +136,7 @@ def delta_distance(message, bot, user_list, from_user):
             bot.register_next_step_handler(message, delta_distance, bot, user_list, from_user)
 
 
+@logger.catch
 def number_city(message, bot, user_list, from_user):
     if message.text.isdigit():
         if 0 < int(message.text) < 26:
@@ -152,7 +154,8 @@ def number_city(message, bot, user_list, from_user):
         bot.send_message(from_user, 'введите количество цифрами')
 
 
-def photo_question(message, bot, user_list, from_user):
+@logger.catch
+def photo_question(bot, from_user):
     keyboard = types.InlineKeyboardMarkup()
     keyboard.add(types.InlineKeyboardButton(text='Да', callback_data='Yes photo'),
                  types.InlineKeyboardButton(text='Нет', callback_data='No photo'))
@@ -160,11 +163,11 @@ def photo_question(message, bot, user_list, from_user):
     bot.send_message(from_user, text=question, reply_markup=keyboard)
 
 
+@logger.catch
 def number_photo(message, bot, user_list, from_user):
     if message.text.isdigit():
         if 0 < int(message.text) < 11:
             number = int(message.text)
-
             user_list[from_user].query.number_photo = number
             bot.send_message(from_user,
                              'Количество фотографий для поиска: {0}'.format(message.text))
@@ -176,6 +179,7 @@ def number_photo(message, bot, user_list, from_user):
         bot.send_message(from_user, 'введите количество цифрами')
 
 
+@logger.catch
 def search_hotel(message, bot, user_list, from_user):
     sortOrder = "PRICE"
     if user_list[from_user].command == '/highprice':
