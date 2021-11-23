@@ -1,37 +1,21 @@
 import datetime
-from typing import List, Dict, Optional
-
-import telebot
-from telebot import types, apihelper
-
-from loader import bot
-from loader import logger
-from rapidapi import API_request
+from typing import Dict, Optional
+from telebot import types, apihelper, TeleBot
+from telebot.types import Message, CallbackQuery
+from loader import bot, logger
 from handlers import search
-from history import open_history, load_history, del_history
+from history import user_list, open_history, load_history, del_history
 from telegramcalendar import create_calendar
-import calendar
+from user import User
+from calendar import monthrange
 
 
-class User:
-    """
-    класс Пользователь. Хранит текущий запрос, а также историю запросов
-    :param
-    """
-
-    def __init__(self) -> None:
-        self.command: str = ''
-        self.query: API_request = API_request()
-        self.history: Dict[str, List[str, API_request]] = dict()
-
-
-user_list: Dict[int, User] = dict()
 logger.info('Запуск бота.')
 
 
 @bot.message_handler(commands=['start'])
 @logger.catch
-def start_message(message: telebot.types.Message) -> None:
+def start_message(message: Message) -> None:
     """
     Функция запуска бота Телеграмм. Выполняется при вводе пользователем команды /start
     :param message: сообщение от бота
@@ -42,8 +26,7 @@ def start_message(message: telebot.types.Message) -> None:
         user_list[from_user] = User()
         bot.send_message(from_user, 'Здравствуйте, я Ваш помощник!\nЯ помогу Вам найти отель для поездки')
         logger.info('Новый пользователь id:{id}'.format(id=from_user))
-        temp_query = API_request()
-        res = load_history(user_list, from_user, temp_query)
+        load_history(user_list, from_user)
     else:
         bot.send_message(from_user, 'И снова здравствуйте!')
     help_message(message)
@@ -51,7 +34,7 @@ def start_message(message: telebot.types.Message) -> None:
 
 @bot.message_handler(commands=['help'])
 @logger.catch
-def help_message(message: telebot.types.Message) -> None:
+def help_message(message: Message) -> None:
     """
     Функция вывода краткой справки по боту. Выполняется при вводе пользователем команды /help
     :param message: сообщение от бота
@@ -68,7 +51,7 @@ def help_message(message: telebot.types.Message) -> None:
 
 @bot.message_handler(commands=['lowprice', 'highprice', 'bestdeal'])
 @logger.catch
-def search_price(message: telebot.types.Message, from_user: Optional[int] = None) -> None:
+def search_price(message: Message, from_user: Optional[int] = None) -> None:
     """
     Функция запуска поиска отелей. Выполняется при вводе пользователем команд из списка
     :param message: сообщение от бота
@@ -83,7 +66,7 @@ def search_price(message: telebot.types.Message, from_user: Optional[int] = None
         except apihelper.ApiTelegramException:
             logger.info('попытка убрать клавиатуру в команде bestdeal во время доп. запросов')
         if user_list[from_user].command == '':
-            user_list[from_user].query = API_request()
+            user_list[from_user].reset_query()
             user_list[from_user].command = message.text
             user_list[from_user].query.status = 0
             logger.info('Новый запрос {comm} пользователя id:{id}'.format(comm=message.text, id=from_user))
@@ -96,7 +79,7 @@ def search_price(message: telebot.types.Message, from_user: Optional[int] = None
 
 @bot.message_handler(commands=['history'])
 @logger.catch
-def history(message: telebot.types.Message, from_user: Optional[int] = None) -> None:
+def history(message: Message, from_user: Optional[int] = None) -> None:
     """
     Функция вывода истории поиска. Выполняется при вводе пользователем команды /history
     :param message: сообщение от бота
@@ -110,14 +93,14 @@ def history(message: telebot.types.Message, from_user: Optional[int] = None) -> 
             logger.info('История пользователя id:{id}'.format(id=from_user))
             open_history(bot, user_list, from_user)
         else:
-            logger.info(
-                'Новый запрос на смену команды на {comm} пользователя id:{id}'.format(comm=message.text, id=from_user))
+            logger.info('Новый запрос на смену команды на {comm} пользователя id:{id}. status={status}'.format(
+                    comm=message.text, id=from_user, status=user_list[from_user].query.status))
             change_commands_question(message, bot, user_list, from_user)
 
 
 @bot.message_handler(content_types=['text'])
 @logger.catch
-def text_input(message: telebot.types.Message, from_user: Optional[int] = None) -> None:
+def text_input(message: Message, from_user: Optional[int] = None) -> None:
     """
     Функция ожидает ввод от пользователя и продолжает поиск.
     :param message: сообщение от бота
@@ -136,7 +119,7 @@ def text_input(message: telebot.types.Message, from_user: Optional[int] = None) 
 
 @bot.callback_query_handler(func=lambda call: True)
 @logger.catch
-def callback_worker(call: telebot.types.CallbackQuery) -> None:
+def callback_worker(call: CallbackQuery) -> None:
     """
     Функция ожидает нажатие на кнопку от пользователя и перенаправляет в функцию в зависимости от того, что спрашиваем:
      - startswith('/'): выбрана команда для продолжения поиска или начала нового поиска
@@ -166,7 +149,7 @@ def callback_worker(call: telebot.types.CallbackQuery) -> None:
 
 
 @logger.catch()
-def change_command(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user_list: Dict[int, User],
+def change_command(call: CallbackQuery, bot: TeleBot, user_list: Dict[int, User],
                    from_user: int) -> None:
     """
     Функция в зависимости от выбора пользователя продолжает текущий поиск, либо запускает новый.
@@ -180,8 +163,12 @@ def change_command(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user
     message = bot.edit_message_reply_markup(from_user, message_id=call.message.message_id,
                                             reply_markup=None)
     message.text = call.data.split(' ')[0]
-    if user_list[from_user].command != '/bestdeal' and user_list[from_user].query.status == 6:
-        user_list[from_user].query.status -= 4
+    if user_list[from_user].command != '/bestdeal' and user_list[from_user].query.status == 8:
+        user_list[from_user].query.status -= 6
+    elif user_list[from_user].query.status == 9:
+        logger.info(
+            '{comm} пользователь id:{id}. status={status} При возврате к команде надо спросить ту же дату'.format(
+                comm=message.text, id=from_user, status=user_list[from_user].query.status))
     else:
         user_list[from_user].query.status -= 1
     if call.data.split(' ')[1] == '1':
@@ -192,9 +179,8 @@ def change_command(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user
             text_input(message, from_user)
     else:
         end_message = 'Выбрана команда Начать заново ' + call.data.split(' ')[0]
-        res = user_list[from_user].query.end_query(bot, user_list, from_user, end_message)
-        if res:
-            user_list[from_user].command = ''
+        user_list[from_user].end_query(bot, from_user, end_message)
+        user_list[from_user].command = ''
         if call.data.split(' ')[0] == '/history':
             history(message, from_user)
         else:
@@ -202,7 +188,7 @@ def change_command(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user
 
 
 @logger.catch()
-def question_photo(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user_list: Dict[int, User],
+def question_photo(call: CallbackQuery, bot: TeleBot, user_list: Dict[int, User],
                    from_user: int) -> None:
     """
     Функция в зависимости от выбора пользователя решает о необходимости запроса количества фотографий
@@ -223,7 +209,7 @@ def question_photo(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user
 
 
 @logger.catch()
-def view_history(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user_list: Dict[int, User],
+def view_history(call: CallbackQuery, bot: TeleBot, user_list: Dict[int, User],
                  from_user: int) -> None:
     """
     Функция в зависимости от выбора пользователя решает о необходимости запуска запроса из истории
@@ -258,7 +244,7 @@ def view_history(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user_l
 
 
 @logger.catch()
-def selection_city(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user_list: Dict[int, User],
+def selection_city(call: CallbackQuery, bot: TeleBot, user_list: Dict[int, User],
                    from_user: int) -> None:
     """
     Функция в зависимости от выбора пользователя определяет город для поиска или возврат к вводу города
@@ -285,7 +271,7 @@ def selection_city(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user
 
 
 @logger.catch()
-def change_commands_question(message: telebot.types.Message, bot: telebot.TeleBot, user_list: Dict[int, User],
+def change_commands_question(message: Message, bot: TeleBot, user_list: Dict[int, User],
                              from_user: int) -> None:
     """
     Функция выводит клавиатуру запроса от пользователя необходимости смены текущей команды на новую
@@ -313,8 +299,8 @@ def change_commands_question(message: telebot.types.Message, bot: telebot.TeleBo
 
 
 @logger.catch()
-def calendar_input_data(call: telebot.types.CallbackQuery, bot: telebot.TeleBot, user_list: Dict[int, User],
-                   from_user: int) -> None:
+def calendar_input_data(call: CallbackQuery, bot: TeleBot, user_list: Dict[int, User],
+                        from_user: int) -> None:
     """
     Функция в зависимости от выбора пользователя выводит календарь на другой месяц или сохраняет введенную дату
     :param call: callback от бота
@@ -328,7 +314,7 @@ def calendar_input_data(call: telebot.types.CallbackQuery, bot: telebot.TeleBot,
     if user_list[from_user].query.date_range.get('checkIn_day'):
         check_day = 'checkOut_day'
     saved_date = datetime.date(int(temp_date[0]), int(temp_date[1]), int(temp_date[2]))
-    month_days = calendar.monthrange(int(temp_date[0]), int(temp_date[1]))[1]
+    month_days = monthrange(int(temp_date[0]), int(temp_date[1]))[1]
     if call.data == 'next-month':
         saved_date += datetime.timedelta(days=month_days)
         user_list[from_user].query.date_range['now_day'] = saved_date.strftime('%Y-%m-%d')

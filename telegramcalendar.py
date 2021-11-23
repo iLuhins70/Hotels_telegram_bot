@@ -1,5 +1,5 @@
 from telebot import types
-import calendar
+from calendar import monthcalendar, month_name
 
 
 def create_calendar(year: int, month: int) -> types.InlineKeyboardMarkup():
@@ -10,14 +10,14 @@ def create_calendar(year: int, month: int) -> types.InlineKeyboardMarkup():
     :return: объект клавиатура
     """
     markup = types.InlineKeyboardMarkup()
-    row = [types.InlineKeyboardButton(calendar.month_name[month] + " " + str(year), callback_data="ignore")]
+    row = [types.InlineKeyboardButton(month_name[month] + " " + str(year), callback_data="ignore")]
     markup.row(*row)
     week_days = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
     row = []
     for day in week_days:
         row.append(types.InlineKeyboardButton(day, callback_data="ignore"))
     markup.row(*row)
-    my_calendar = calendar.monthcalendar(year, month)
+    my_calendar = monthcalendar(year, month)
     for week in my_calendar:
         row = []
         for day in week:

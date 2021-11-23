@@ -1,31 +1,35 @@
 import datetime
-from typing import Dict
-from telebot import types
+from telebot import types, TeleBot
+from telebot.types import Message
+from history import user_list
 from loader import logger
 from telegramcalendar import create_calendar
 
 
 @logger.catch
-def search(bot: 'telebot.TeleBot', message: 'telebot.types.Message', user_list: Dict[int, 'User'],
+def search(bot: TeleBot, message: Message, user_list: user_list,
            from_user: int) -> None:
     """
     Основная функция перераспределения запроса в зависимости от ответа пользователя и статуса запроса
     user_list[from_user].query.status:
     0 - начало поиска, ждем ввода города
     1 - введен город для поиска, ищем и выводим список найденных городов (вывод кнопок)
-    2 - выбран город из списка, спросим спросим min стоимость, если /bestdeal  или дату заезда (к статусу 6)
+    2 - выбран город из списка, спросим min стоимость, если /bestdeal  или дату заезда (к статусу 8)
 
-    3 - /bestdeal спросим max стоимость
-    4 - /bestdeal спросим min расстояние от центра
-    5 - /bestdeal спросим max расстояние от центра
+    3 - /bestdeal если стоимость введена правильно, спросим max стоимость
+    4 - /bestdeal если стоимость введена правильно, переходим в вопросам о расстоянии от центра
+    5 - /bestdeal спросим min расстояние от центра
+    6 - /bestdeal если расстояние введено правильно, спросим max расстояние от центра
+    7 - /bestdeal если расстояние введено правильно, спросим дату заезда
 
-    6 - введено правильная дата заезда, спросим дату отъезда
-    7 - введено правильная дата отъезда, спросим количество отелей
-    8 - введено количество отелей, необходимо проверить ввод
-    9 - введено правильное количество отелей, спросим про необходимость вывода фотографий (вывод кнопок)
-   10 - введен ответ о необходимости фотографий, решаем, спрашивать ли об их количестве
-   11 - введено количество фотографий, необходимо проверить ввод
-   12 - введено правильное количество фотографий, исполняем запрос
+    8 - если дата введено правильно, спросим дату отъезда
+    9 - если дата введено правильно, спросим дату отъезда
+   10 - введено правильная дата отъезда, спросим количество отелей
+   11 - введено количество отелей, необходимо проверить ввод
+   12 - введено правильное количество отелей, спросим про необходимость вывода фотографий (вывод кнопок)
+   13 - введен ответ о необходимости фотографий, решаем, спрашивать ли об их количестве, если нет то к статусу 15
+   14 - введено количество фотографий, необходимо проверить ввод
+   15 - введено правильное количество фотографий, исполняем запрос
 
     :param bot: сам бот
     :param message: сообщение пользователя
@@ -46,21 +50,11 @@ def search(bot: 'telebot.TeleBot', message: 'telebot.types.Message', user_list: 
         else:
             user_list[from_user].query.status += 6
             date_range(bot, user_list, from_user)
-    elif user_list[from_user].query.status == 3:
+    elif 3 <= user_list[from_user].query.status <= 4:
         delta_price(message, bot, user_list, from_user)
-    elif user_list[from_user].query.status == 4:
-        delta_price(message, bot, user_list, from_user)
-    elif user_list[from_user].query.status == 5:
+    elif 5 <= user_list[from_user].query.status <= 7:
         delta_distance(message, bot, user_list, from_user)
-    elif user_list[from_user].query.status == 6:
-        delta_distance(message, bot, user_list, from_user)
-    elif user_list[from_user].query.status == 7:
-        delta_distance(message, bot, user_list, from_user)
-    elif user_list[from_user].query.status == 8:
-        date_range(bot, user_list, from_user)
-    elif user_list[from_user].query.status == 9:
-        date_range(bot, user_list, from_user)
-    elif user_list[from_user].query.status == 10:
+    elif 8 <= user_list[from_user].query.status <= 10:
         date_range(bot, user_list, from_user)
     elif user_list[from_user].query.status == 11:
         number_hotels(message, bot, user_list, from_user)
@@ -71,18 +65,18 @@ def search(bot: 'telebot.TeleBot', message: 'telebot.types.Message', user_list: 
         user_list[from_user].query.status += 1
         if user_list[from_user].query.number_photo is None:
             user_list[from_user].query.status = 15
-            search_hotel(message, bot, user_list, from_user)
+            search_hotel(bot, user_list, from_user)
         else:
             bot.send_message(from_user,
                              'Введите количество фотографий, которые необходимо вывести в результате (не больше 10)')
     elif user_list[from_user].query.status == 14:
         number_photo(message, bot, user_list, from_user)
     elif user_list[from_user].query.status == 15:
-        search_hotel(message, bot, user_list, from_user)
+        search_hotel(bot, user_list, from_user)
 
 
 @logger.catch
-def name_city(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_list: Dict[int, 'User'],
+def name_city(message: Message, bot: TeleBot, user_list: user_list,
               from_user: int) -> None:
     """
     Функция запуска поиска города, вызывает метод класса запроса
@@ -92,11 +86,11 @@ def name_city(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_lis
     :param from_user: id пользователя
     :return: None
     """
-    user_list[from_user].query.search_cities(message, bot, user_list, from_user)
+    user_list[from_user].search_cities(message, bot, from_user)
 
 
 @logger.catch
-def delta_price(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_list: Dict[int, 'User'],
+def delta_price(message: Message, bot: TeleBot, user_list: user_list,
                 from_user: int) -> None:
     """
     Функция ввода значений минимальной и максимальной стоимости проживания и проверка их на корректность
@@ -107,28 +101,27 @@ def delta_price(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_l
     :return: None
     """
     currency_str = user_list[from_user].query.locale['currency_str']
-    if not user_list[from_user].query.price:
+    if user_list[from_user].query.status == 2:
         user_list[from_user].query.status += 1
-        user_list[from_user].query.price['min'] = 0
         bot.send_message(from_user,
                          'Введите минимальную стоимость проживания в сутки, {currency_str}'.format(
                              currency_str=currency_str))
-    elif user_list[from_user].query.price['min'] == 0:
+    elif user_list[from_user].query.status == 3:
         try:
-            price = int(message.text)
+            if not user_list[from_user].query.price.get('min'):
+                price = int(message.text)
+                user_list[from_user].query.price['min'] = price
             user_list[from_user].query.status += 1
-
-            user_list[from_user].query.price['min'] = price
-            user_list[from_user].query.price['max'] = 0
             bot.send_message(from_user, 'Введите максимальную стоимость проживания в сутки, {currency_str}'.format(
                 currency_str=currency_str))
         except ValueError:
             bot.send_message(from_user, 'введите количество цифрами')
-    elif user_list[from_user].query.price['max'] == 0:
+    elif user_list[from_user].query.status == 4:
         try:
-            price = int(message.text)
+            if not user_list[from_user].query.price.get('max'):
+                price = int(message.text)
+                user_list[from_user].query.price['max'] = price
             user_list[from_user].query.status += 1
-            user_list[from_user].query.price['max'] = price
             if user_list[from_user].query.price['min'] > user_list[from_user].query.price['max']:
                 user_list[from_user].query.price['min'], user_list[from_user].query.price['max'] = \
                     user_list[from_user].query.price['max'], user_list[from_user].query.price['min']
@@ -143,7 +136,7 @@ def delta_price(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_l
 
 
 @logger.catch
-def delta_distance(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_list: Dict[int, 'User'],
+def delta_distance(message: Message, bot: TeleBot, user_list: user_list,
                    from_user: int) -> None:
     """
     Функция ввода значений минимального и максимального расстояния от центра города и проверка их на корректность
@@ -154,26 +147,26 @@ def delta_distance(message: 'telebot.types.Message', bot: 'telebot.TeleBot', use
     :return: None
     """
     distance = user_list[from_user].query.locale['distance']
-    if not user_list[from_user].query.distance:
+    if user_list[from_user].query.status == 5:
         user_list[from_user].query.status += 1
-        user_list[from_user].query.distance['min'] = 0
         bot.send_message(from_user,
                          'Введите минимальное расстояние от центра, {distance}'.format(distance=distance))
-    elif user_list[from_user].query.distance['min'] == 0:
+    elif user_list[from_user].query.status == 6:
         try:
-            input_distance = float(message.text)
+            if not user_list[from_user].query.distance.get('min'):
+                input_distance = float(message.text)
+                user_list[from_user].query.distance['min'] = input_distance
             user_list[from_user].query.status += 1
-            user_list[from_user].query.distance['min'] = input_distance
-            user_list[from_user].query.distance['max'] = 0
             bot.send_message(from_user,
                              'Введите максимальное расстояние от центра, {distance}'.format(distance=distance))
         except ValueError:
             bot.send_message(from_user, 'Неправильный ввод, повторите')
-    elif user_list[from_user].query.distance['max'] == 0:
+    elif user_list[from_user].query.status == 7:
         try:
-            input_distance = float(message.text)
+            if not user_list[from_user].query.distance.get('max'):
+                input_distance = float(message.text)
+                user_list[from_user].query.distance['max'] = input_distance
             user_list[from_user].query.status += 1
-            user_list[from_user].query.distance['max'] = input_distance
             if user_list[from_user].query.distance['min'] > user_list[from_user].query.distance['max']:
                 user_list[from_user].query.distance['min'], user_list[from_user].query.distance['max'] = \
                     user_list[from_user].query.distance['max'], user_list[from_user].query.distance['min']
@@ -189,7 +182,7 @@ def delta_distance(message: 'telebot.types.Message', bot: 'telebot.TeleBot', use
 
 
 @logger.catch
-def date_range(bot: 'telebot.TeleBot', user_list: Dict[int, 'User'], from_user: int) -> None:
+def date_range(bot: TeleBot, user_list: user_list, from_user: int) -> None:
     """
     Функция ввода даты заезда и выезда и вычисление общего количества суток для проживания
     :param bot: сам бот
@@ -215,9 +208,6 @@ def date_range(bot: 'telebot.TeleBot', user_list: Dict[int, 'User'], from_user: 
         user_list[from_user].query.date_range['delta_days'] = abs((new_date_2 - new_date_1).days)
         bot.send_message(from_user, 'Введите количество отелей, которые необходимо вывести в результате (не больше 25)')
     else:
-
-
-
         question = 'Выберите дату заезда'
         if not user_list[from_user].query.date_range.get('now_day'):
 
@@ -235,7 +225,7 @@ def date_range(bot: 'telebot.TeleBot', user_list: Dict[int, 'User'], from_user: 
 
 
 @logger.catch
-def number_hotels(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_list: Dict[int, 'User'],
+def number_hotels(message: Message, bot: TeleBot, user_list: user_list,
                   from_user: int) -> None:
     """
     Функция ввода количества отелей для поиска и проверка его на корректность
@@ -261,7 +251,7 @@ def number_hotels(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user
 
 
 @logger.catch
-def photo_question(bot: 'telebot.TeleBot', from_user: int) -> None:
+def photo_question(bot: TeleBot, from_user: int) -> None:
     """
     Функция вывода клавиатуры для запроса необходимости поиска фотографий
     :param bot: сам бот
@@ -276,7 +266,7 @@ def photo_question(bot: 'telebot.TeleBot', from_user: int) -> None:
 
 
 @logger.catch
-def number_photo(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_list: Dict[int, 'User'],
+def number_photo(message: Message, bot: TeleBot, user_list: user_list,
                  from_user: int) -> None:
     """
     Функция ввода количества фотографий и проверка его на корректность
@@ -301,11 +291,10 @@ def number_photo(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_
 
 
 @logger.catch
-def search_hotel(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_list: Dict[int, 'User'],
+def search_hotel(bot: TeleBot, user_list: user_list,
                  from_user: int) -> None:
     """
     Функция запуска необходимого запроса из методов класса запрос
-    :param message: сообщение пользователя
     :param bot: сам бот
     :param user_list: список пользователей
     :param from_user: id пользователя
@@ -314,8 +303,8 @@ def search_hotel(message: 'telebot.types.Message', bot: 'telebot.TeleBot', user_
     sortOrder = "PRICE"
     if user_list[from_user].command == '/highprice':
         sortOrder = "PRICE_HIGHEST_FIRST"
-        user_list[from_user].query.search_hotels(bot, user_list, from_user, sortOrder)
+        user_list[from_user].search_hotels(bot,from_user, sortOrder)
     elif user_list[from_user].command == '/lowprice':
-        user_list[from_user].query.search_hotels(bot, user_list, from_user, sortOrder)
+        user_list[from_user].search_hotels(bot, from_user, sortOrder)
     elif user_list[from_user].command == '/bestdeal':
-        user_list[from_user].query.search_best_hotels(bot, user_list, from_user, sortOrder)
+        user_list[from_user].search_best_hotels(bot, from_user, sortOrder)

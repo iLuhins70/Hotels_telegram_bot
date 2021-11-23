@@ -19,11 +19,16 @@ rapidapi_connect: Dict[str, Union[str, Dict[str, str]]] = {
         'x-rapidapi-host': 'hotels4.p.rapidapi.com',
         'x-rapidapi-key': os.getenv('rapidapi_key')}}
 
-with SqliteExtDatabase(database='history.db') as db:
-    class history_db(Model):
-        key = TextField()
-        value = JSONField()
+db = SqliteExtDatabase(database='history.db')
 
-        class Meta:
-            database = db
-    history_db.create_table()
+
+class History_db(Model):
+    key = TextField()
+    value = JSONField()
+
+    class Meta:
+        database = db
+
+
+with db:
+    History_db.create_table()
