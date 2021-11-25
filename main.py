@@ -262,6 +262,7 @@ def selection_city(call: CallbackQuery, bot: TeleBot, user_list: Dict[int, User]
         message = bot.send_message(from_user,
                                    'Вы выбрали ' + user_list[from_user].query.city[
                                        'long_name'])
+        logger.info('query.city = {city}'.format(city=user_list[from_user].query.city))
     else:
         user_list[from_user].query.status = 0
         message = bot.send_message(from_user,
@@ -283,7 +284,7 @@ def change_commands_question(message: Message, bot: TeleBot, user_list: Dict[int
     """
     try:
         bot.edit_message_reply_markup(from_user, message_id=message.id - 1, reply_markup=None)
-    except apihelper.ApiTelegramException as a:
+    except apihelper.ApiTelegramException:
         logger.info('попытка убрать клавиатуру, если она была при смене команды')
     keyboard = types.InlineKeyboardMarkup()
     old_command = user_list[from_user].command

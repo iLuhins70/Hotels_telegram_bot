@@ -22,10 +22,12 @@ def open_history(bot: TeleBot, user_list: Dict[int, User], from_user: int) -> No
         bot.send_message(from_user, 'История Ваших запросов:')
         keyboard = types.InlineKeyboardMarkup()
         question = 'Выберите запрос для повторного выполнения'
+        logger.info('history: {history}'.format(history=history))
         for num, i_history in enumerate(history, 1):
             i_message = '{num}. {date}\n{command}'.format(
                 num=str(num), date=i_history, command=history[i_history][0])
             city = 'не выбран'
+            logger.info('i_history: {i_history}'.format(i_history=i_history))
             if history[i_history][1].city:
                 city = history[i_history][1].city['long_name']
             i_message += '\nГород: {city}'.format(city=city)

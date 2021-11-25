@@ -213,7 +213,8 @@ def date_range(bot: TeleBot, user_list: user_list, from_user: int) -> None:
 
             user_list[from_user].query.date_range['now_day'] = datetime.datetime.utcnow().strftime('%Y-%m-%d')
 
-        if user_list[from_user].query.date_range.get('checkIn_day') and not user_list[from_user].query.date_range.get('checkOut_day'):
+        if user_list[from_user].query.date_range.get('checkIn_day') and not user_list[from_user].query.date_range.get(
+                'checkOut_day'):
             question = 'Выберите дату отъезда'
             temp_date = user_list[from_user].query.date_range['checkIn_day'].split('-')
             user_list[from_user].query.date_range['now_day'] = user_list[from_user].query.date_range['checkIn_day']
@@ -225,8 +226,7 @@ def date_range(bot: TeleBot, user_list: user_list, from_user: int) -> None:
 
 
 @logger.catch
-def number_hotels(message: Message, bot: TeleBot, user_list: user_list,
-                  from_user: int) -> None:
+def number_hotels(message: Message, bot: TeleBot, user_list: user_list, from_user: int) -> None:
     """
     Функция ввода количества отелей для поиска и проверка его на корректность
     :param message: сообщение пользователя

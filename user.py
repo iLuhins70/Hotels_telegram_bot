@@ -1,8 +1,11 @@
 import datetime
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any
 import json
 import requests
 import re
+
+from requests import ReadTimeout
+
 from loader import rapidapi_connect, db, History_db, logger
 from telebot import types, TeleBot
 from telebot.types import Message
@@ -34,7 +37,7 @@ class User:
         :param message: сообщение пользователя
         :param bot: сам бот
         :param from_user: id пользователя
-        :return: None
+        :return: bool
         """
         city = message.text
         logger.info(self.query.status)
@@ -57,28 +60,38 @@ class User:
             logger.info('Поиск города {city}: команда {comm}, пользователь id:{id}'.format(
                 city=city, comm=self.command, id=from_user))
 
-            response = requests.request("GET", rapidapi_connect['url_city'], headers=rapidapi_connect['headers'],
-                                        params=querystring, timeout=60)
-            logger.info('Ответ получен response.status_code = {response}: команда {comm}, пользователь id:{id}'.format(
-                response=response.status_code, city=city, comm=self.command, id=from_user))
-            if response.status_code == 200:
-                data = json.loads(response.text)
-                suggestions = list(filter(lambda i_city: i_city['group'] == 'CITY_GROUP', data['suggestions']))[0][
-                    'entities']
-                city_group = list(filter(lambda one_name: one_name['type'] == 'CITY', suggestions))
-                logger.info('city_group={data}'.format(data=str(city_group)))
-                logger.info('len(city_group)={data}'.format(data=len(city_group)))
-            else:
-                logger.info('response.status_code != 200. Сервер не отвечает. Город не найден.')
-                end_message = 'Сервер не отвечает. Город не найден.'
+            try:
+                response = requests.request("GET", rapidapi_connect['url_city'], headers=rapidapi_connect['headers'],
+                                            params=querystring, timeout=30)
+                logger.info(
+                    'Ответ получен response.status_code = {response}: команда {comm}, пользователь id:{id}'.format(
+                        response=response.status_code, city=city, comm=self.command, id=from_user))
+                if response.status_code == 200:
+                    data = json.loads(response.text)
+                    suggestions = list(filter(lambda i_city: i_city['group'] == 'CITY_GROUP', data['suggestions']))[0][
+                        'entities']
+                    city_group = list(filter(lambda one_name: one_name['type'] == 'CITY', suggestions))
+                    logger.info('city_group={data}'.format(data=str(city_group)))
+                    logger.info('len(city_group)={data}'.format(data=len(city_group)))
+                else:
+                    logger.info('response.status_code != 200. Сервер не отвечает. Город не найден.')
+                    end_message = 'Сервер не отвечает. Город не найден.'
+                    self.query.status = 0
+                    self.end_query(bot, from_user, end_message)
+                    return False
+
+            except ReadTimeout:
+                end_message = 'Время ожидания ответа сервера истекло. Город {city} не найден.'.format(city=city)
+                logger.info('{end_message} Команда {comm}, пользователь id:{id}'.format(
+                    end_message=end_message, comm=self.command, id=from_user))
                 self.query.status = 0
                 self.end_query(bot, from_user, end_message)
                 return False
-
         if city_group and (len(city_group) > 0):
             logger.info('Найдено {number} городов: команда {comm}, пользователь id:{id}'.format(number=len(city_group),
                                                                                                 comm=self.command,
                                                                                                 id=from_user))
+            logger.info('query.group_city: {group_city}'.format(group_city=self.query.group_city))
             for i_key, i_value in enumerate(city_group):
                 i_name = re.sub(r'\<.*?\>', "", i_value['caption'])
                 i_value['long_name'] = i_name
@@ -99,10 +112,11 @@ class User:
         :param bot: сам бот
         :param from_user: id пользователя
         :param sort_order: метод сортировки результатов
-        :return: None
+        :return: bool
         """
         bot.send_message(from_user, 'Поиск отелей. Подождите...')
         current_city = self.query.city
+        logger.info('query.city: {city}'.format(city=self.query.city))
         checkIn_day = self.query.date_range['checkIn_day']
         checkOut_day = self.query.date_range['checkOut_day']
         action = 'load'
@@ -112,25 +126,34 @@ class User:
                        "checkOut": checkOut_day, "adults1": "1", "sortOrder": sort_order, "locale": lang_user,
                        "currency": currency
                        }
-        response = requests.request("GET", rapidapi_connect['url_hotels'], headers=rapidapi_connect['headers'],
-                                    params=querystring, timeout=60)
-        if response.status_code == 200:
-            data = json.loads(response.text)
-            self.query.hotels = data['data']['body']['searchResults']['results']
+        try:
+            response = requests.request("GET", rapidapi_connect['url_hotels'], headers=rapidapi_connect['headers'],
+                                        params=querystring, timeout=30)
+            if response.status_code == 200:
+                data = json.loads(response.text)
+                self.query.hotels = data['data']['body']['searchResults']['results']
 
-            if len(self.query.hotels) > 0:
-                for num, hotel in enumerate(self.query.hotels, 1):
-                    i_hotel = self.hotel_information(hotel, num, currency_str)
-                    bot.send_message(from_user, i_hotel)
-                    if self.query.number_photo:
-                        self.search_hotel_photo(bot, from_user, hotel['id'])
+                if len(self.query.hotels) > 0:
+                    logger.info('Hotels: {hotels}'.format(hotels=self.query.hotels))
+                    for num, hotel in enumerate(self.query.hotels, 1):
+                        i_hotel = self.hotel_information(hotel, num, currency_str)
+                        bot.send_message(from_user, i_hotel)
+                        if self.query.number_photo:
+                            self.search_hotel_photo(bot, from_user, hotel['id'])
+                else:
+                    bot.send_message(from_user, 'Отелей в указанном городе не найдено')
+                self.end_query(bot, from_user)
+                return True
             else:
-                bot.send_message(from_user, 'Отелей в указанном городе не найдено')
-            self.end_query(bot, from_user)
-            return True
-        else:
-            logger.info('response.status_code != 200. Сервер не отвечает. Отели не найдены.')
-            end_message = 'Сервер не отвечает. Отели не найдены.'
+                logger.info('response.status_code != 200. Сервер не отвечает. Отели не найдены.')
+                end_message = 'Сервер не отвечает. Отели не найдены.'
+                self.query.status -= 1
+                self.end_query(bot, from_user, end_message)
+                return False
+        except ReadTimeout:
+            end_message = 'Время ожидания ответа сервера истекло. Отели не найдены.'
+            logger.info('{end_message} Команда {comm}, пользователь id:{id}'.format(
+                end_message=end_message, comm=self.command, id=from_user))
             self.query.status -= 1
             self.end_query(bot, from_user, end_message)
             return False
@@ -141,7 +164,7 @@ class User:
         :param bot: сам бот
         :param from_user: id пользователя
         :param sort_order: метод сортировки результатов
-        :return: None
+        :return: bool
         """
         bot.send_message(from_user, 'Поиск отелей. Подождите...')
         current_city = self.query.city
@@ -168,29 +191,39 @@ class User:
                                "priceMax": price_max,
                                "sortOrder": sort_order, "locale": lang_user, "currency": currency}
                 logger.info('Поиск отелей /bestdeal querystring={querystring}'.format(querystring=querystring))
-                response = requests.request("GET", rapidapi_connect['url_hotels'], headers=rapidapi_connect['headers'],
-                                            params=querystring, timeout=60)
-                if response.status_code == 200:
-                    data = json.loads(response.text)
-                    if len(data['data']['body']['searchResults']['results']) > 0:
-                        for num, hotel in enumerate(data['data']['body']['searchResults']['results'], 1):
-                            if len(self.query.hotels) < self.query.number_hotels:
-                                if hotel.get('landmarks')[0].get('distance'):
-                                    i_landmarks = float(
-                                        re.sub(',', '.', hotel['landmarks'][0]['distance'].split(' ')[0]))
-                                    if self.query.distance['min'] <= i_landmarks <= \
-                                            self.query.distance['max']:
-                                        self.query.hotels.append(hotel)
-                                        find_number += 1
-                                        i_hotel = self.hotel_information(hotel, find_number, currency_str)
-                                        bot.send_message(from_user, i_hotel)
-                                        if self.query.number_photo:
-                                            self.search_hotel_photo(bot, from_user, hotel['id'])
-                            else:
-                                break
-                else:
-                    logger.info('response.status_code != 200. Сервер не отвечает. Отели для bestdeal не найдены.')
-                    end_message = 'Сервер не отвечает. Отели для bestdeal не найдены'
+                try:
+                    response = requests.request("GET", rapidapi_connect['url_hotels'],
+                                                headers=rapidapi_connect['headers'],
+                                                params=querystring, timeout=30)
+                    if response.status_code == 200:
+                        data = json.loads(response.text)
+                        if len(data['data']['body']['searchResults']['results']) > 0:
+
+                            for num, hotel in enumerate(data['data']['body']['searchResults']['results'], 1):
+                                if len(self.query.hotels) < self.query.number_hotels:
+                                    if hotel.get('landmarks')[0].get('distance'):
+                                        i_landmarks = float(
+                                            re.sub(',', '.', hotel['landmarks'][0]['distance'].split(' ')[0]))
+                                        if self.query.distance['min'] <= i_landmarks <= \
+                                                self.query.distance['max']:
+                                            self.query.hotels.append(hotel)
+                                            find_number += 1
+                                            i_hotel = self.hotel_information(hotel, find_number, currency_str)
+                                            bot.send_message(from_user, i_hotel)
+                                            if self.query.number_photo:
+                                                self.search_hotel_photo(bot, from_user, hotel['id'])
+                                else:
+                                    break
+                    else:
+                        logger.info('response.status_code != 200. Сервер не отвечает. Отели для bestdeal не найдены.')
+                        end_message = 'Сервер не отвечает. Отели для bestdeal не найдены'
+                        self.query.status -= 1
+                        self.end_query(bot, from_user, end_message)
+                        return False
+                except ReadTimeout:
+                    end_message = 'Время ожидания ответа сервера истекло. Отели для bestdeal не найдены.'
+                    logger.info('{end_message} Команда {comm}, пользователь id:{id}'.format(
+                        end_message=end_message, comm=self.command, id=from_user))
                     self.query.status -= 1
                     self.end_query(bot, from_user, end_message)
                     return False
@@ -209,26 +242,35 @@ class User:
         :param bot: сам бот
         :param from_user: id пользователя
         :param id_hotel: id отеля
-        :return: None
+        :return: bool
         """
         querystring = {"id": id_hotel}
-        response = requests.request("GET", rapidapi_connect['url_photo'], headers=rapidapi_connect['headers'],
-                                    params=querystring, timeout=60)
-        if response.status_code == 200:
-            data = json.loads(response.text)
-            self.query.photos = data.get('hotelImages')
-            media_group = list()
-            if len(self.query.photos) > 0:
-                for num, photo in enumerate(self.query.photos, 1):
-                    if num <= self.query.number_photo:
-                        media_group.append(types.InputMediaPhoto(media=re.sub('{size}', "z", photo.get('baseUrl'))))
-            bot.send_media_group(from_user, media=media_group)
-            return True
-        else:
-            logger.info('response.status_code != 200. Сервер не отвечает. Фото не найдены.')
-            bot.send_message(from_user, 'Сервер не отвечает. Фото не найдены')
+        try:
+            response = requests.request("GET", rapidapi_connect['url_photo'], headers=rapidapi_connect['headers'],
+                                        params=querystring, timeout=30)
+            if response.status_code == 200:
+                data = json.loads(response.text)
+                self.query.photos = data.get('hotelImages')
+                media_group = list()
+                if len(self.query.photos) > 0:
+                    logger.info('query.photo: {photo}'.format(photo=self.query.photos))
+                    for num, photo in enumerate(self.query.photos, 1):
+                        if num <= self.query.number_photo:
+                            media_group.append(types.InputMediaPhoto(media=re.sub('{size}', "z", photo.get('baseUrl'))))
+                bot.send_media_group(from_user, media=media_group)
+                return True
+            else:
+                logger.info('response.status_code != 200. Сервер не отвечает. Фото не найдены.')
+                bot.send_message(from_user, 'Сервер не отвечает. Фото не найдены')
+                self.query.status -= 1
+                self.end_query(bot, from_user)
+                return False
+        except ReadTimeout:
+            end_message = 'Время ожидания ответа сервера истекло.Фото не найдены.'
+            logger.info('{end_message} Команда {comm}, пользователь id:{id}'.format(
+                end_message=end_message, comm=self.command, id=from_user))
             self.query.status -= 1
-            self.end_query(bot, from_user)
+            self.end_query(bot, from_user, end_message)
             return False
 
     def hotel_information(self, hotel: Dict[str, Any], find_number: int, currency_str: str) -> str:
@@ -287,7 +329,7 @@ class User:
         :param bot: сам бот
         :param from_user: id пользователя
         :param end_message: сообщение для пользователя
-        :return: bool
+        :return: None
         """
         bot.send_message(from_user, end_message)
         if self.query.status != 0:

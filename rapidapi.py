@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Union, Tuple
+from typing import Dict, Any, Optional, Union, Tuple, List
 from loader import logger
 
 
@@ -9,28 +9,32 @@ class API_request:
     Свойства:
         status: int: Статус запроса, от 0 до 15, необходим для перенаправления выполнения запроса к нужным функциям.
                      Подробнее в функции search из модуля handlers.py
-        group_city: Optional[Dict[str, Any]]: Информация о найденных городах
-        city: Optional[Dict[str, Any]]: информация о выбранном их списка городе
+        group_city: Optional[List[Dict[str, Union[str, None, float]]]]: Информация о найденных городах
+        city: Optional[Dict[str, Union[str, None, float]]]: информация о выбранном их списка городе
         number_hotels: int = 0
         price: Dict[str, int] = dict()
         distance: Dict[str, float] = dict()
         date_range: Dict[str, Union[str, int]] = dict()
-        hotels: Optional[Dict[str, Any]] = None
+        hotels: Optional[List[Dict[str, Union[str, None, int, float, bool, List[Optional[Dict[str, str]]],
+            Dict[str, Union[str, float, bool, Dict[str, Union[str, bool]]]]]]]] = None
         number_photo: Optional[int] = None
-        photos: Optional[Dict[str, Any]] = None
+        photos: Optional[List[Dict[str, Union[str, None, int, Dict[str, str],
+                                            List[Dict[str, Union[str, int]]]]]]] = None
         locale: Dict[str, str] = dict()
     """
     def __init__(self) -> None:
         self.status: int = 0
-        self.group_city: Optional[Dict[str, Any]] = None
-        self.city: Optional[Dict[str, Any]] = None
+        self.group_city: Optional[List[Dict[str, Union[str, None, float]]]] = None
+        self.city: Optional[Dict[str, Union[str, None, float]]] = None
         self.number_hotels: int = 0
         self.price: Dict[str, int] = dict()
         self.distance: Dict[str, float] = dict()
         self.date_range: Dict[str, Union[str, int]] = dict()
-        self.hotels: Optional[Dict[str, Any]] = None
+        self.hotels: Optional[List[Dict[str, Union[str, None, int, float, bool, List[Optional[Dict[str, str]]], Dict[
+            str, Union[str, float, bool, Dict[str, Union[str, bool]]]]]]]] = None
         self.number_photo: Optional[int] = None
-        self.photos: Optional[Dict[str, Any]] = None
+        self.photos: Optional[
+            List[Dict[str, Union[str, None, int, Dict[str, str], List[Dict[str, Union[str, int]]]]]]] = None
         self.locale: Dict[str, str] = dict()
 
     def action_locale(self, action, lang_user='en_US', distance='miles', currency='USD', currency_str='$') -> \
@@ -55,7 +59,7 @@ class API_request:
             currency_str = self.locale['currency_str']
             return lang_user, currency, currency_str
 
-    def query_json(self) -> Dict[str, Any]:
+    def query_json(self) -> dict[str, Any]:
         """
         Функция преобразования экземпляра класса в json
 
