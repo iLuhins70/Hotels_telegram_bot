@@ -27,7 +27,6 @@ def open_history(bot: TeleBot, user_list: Dict[int, User], from_user: int) -> No
             i_message = '{num}. {date}\n{command}'.format(
                 num=str(num), date=i_history, command=history[i_history][0])
             city = 'не выбран'
-            logger.info('i_history: {i_history}'.format(i_history=i_history))
             if history[i_history][1].city:
                 city = history[i_history][1].city['long_name']
             i_message += '\nГород: {city}'.format(city=city)

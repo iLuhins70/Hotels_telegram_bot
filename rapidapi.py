@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Union, Tuple, List
+from typing import Dict, Optional, Union, Tuple, List, Any
 from loader import logger
 
 
@@ -40,7 +40,7 @@ class API_request:
     def action_locale(self, action, lang_user='en_US', distance='miles', currency='USD', currency_str='$') -> \
             Tuple[str, str, str]:
         """
-        Функция для сохранения и чтения локальных параметров запроса
+        Метод для сохранения и чтения локальных параметров запроса
         :param action: 'save' для записи локальных параметров, иначе загрузка
         :param lang_user: язык ввода
         :param distance: км или мили для измерения расстояния
@@ -59,9 +59,9 @@ class API_request:
             currency_str = self.locale['currency_str']
             return lang_user, currency, currency_str
 
-    def query_json(self) -> dict[str, Any]:
+    def query_json(self) -> Dict[str, Any]:
         """
-        Функция преобразования экземпляра класса в json
+        Метод преобразования экземпляра класса в json
 
         :return: json
         """

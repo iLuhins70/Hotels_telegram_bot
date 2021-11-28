@@ -113,7 +113,21 @@ def text_input(message: Message, from_user: Optional[int] = None) -> None:
         if user_list[from_user].command == '':
             help_message(message)
         else:
-            logger.info('Продолжим поиск.Пользователь id:{id}'.format(id=from_user))
+            try:
+                bot.edit_message_reply_markup(from_user, message_id=message.id - 1, reply_markup=None)
+                if user_list[from_user].command != '/bestdeal' and user_list[from_user].query.status == 8:
+                    user_list[from_user].query.status -= 6
+                elif user_list[from_user].query.status == 9:
+                    logger.info('{comm} пользователь id:{id}. status={status} При возврате к команде надо '
+                                'спросить ту же дату'.format(comm=message.text, id=from_user,
+                                                             status=user_list[from_user].query.status))
+                else:
+                    user_list[from_user].query.status -= 1
+                logger.info('Продолжим поиск.Пользователь id:{id} ввел текст вместо нажатия '
+                            'кнопки.'.format(id=from_user))
+            except apihelper.ApiTelegramException:
+                logger.info('Продолжим поиск.Пользователь id:{id}. message={message}'.format(id=from_user,
+                                                                                             message=message))
             search(bot, message, user_list, from_user)
 
 

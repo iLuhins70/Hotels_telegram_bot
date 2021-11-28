@@ -1,11 +1,9 @@
 import datetime
-from typing import Dict, List, Any
 import json
 import requests
 import re
-
+from typing import Dict, List, Any, Union
 from requests import ReadTimeout
-
 from loader import rapidapi_connect, db, History_db, logger
 from telebot import types, TeleBot
 from telebot.types import Message
@@ -18,22 +16,21 @@ class User:
     Свойства:
     command: str: команда пользователя
     query: API_request: экземпляр класса, хранит сведения о текущем запросе
-    history: Dict[str, List[str, API_request]]: Словарь для временного хранения истории запросов пользователя,
-             ключ: Дата и время запроса, значение: словарь, где ключ - выполненная команда,
-             значение - выполненныйзапрос
+    history: Dict[str, List[Union[str, API_request]]]: Словарь для временного хранения истории запросов пользователя.
+             ключ: дата и время запроса, значение: список из выполненной команды и самого выполненного запроса
     """
 
     def __init__(self) -> None:
         self.command: str = ''
         self.query: API_request = API_request()
-        self.history: Dict[str, List[str, API_request]] = dict()
+        self.history: Dict[str, List[Union[str, API_request]]] = dict()
 
     def reset_query(self):
         self.query = API_request()
 
     def search_cities(self, message: Message, bot: TeleBot, from_user: int) -> bool:
         """
-        Функция поиска городов в зависимости от локальных параметров и сохранение результата в group_city
+        Метод поиска городов в зависимости от локальных параметров и сохранение результата в group_city
         :param message: сообщение пользователя
         :param bot: сам бот
         :param from_user: id пользователя
@@ -108,7 +105,7 @@ class User:
 
     def search_hotels(self, bot: TeleBot, from_user: int, sort_order: str) -> bool:
         """
-        Функция поиска отелей в выбранном городе и сохранение результата в hotels
+        Метод поиска отелей в выбранном городе и сохранение результата в hotels
         :param bot: сам бот
         :param from_user: id пользователя
         :param sort_order: метод сортировки результатов
@@ -160,7 +157,7 @@ class User:
 
     def search_best_hotels(self, bot: TeleBot, from_user: int, sort_order: str) -> bool:
         """
-        Функция поиска отелей в выбранном городе для команды /bestdeal и сохранение результата в hotels
+        Метод поиска отелей в выбранном городе для команды /bestdeal и сохранение результата в hotels
         :param bot: сам бот
         :param from_user: id пользователя
         :param sort_order: метод сортировки результатов
@@ -238,7 +235,7 @@ class User:
 
     def search_hotel_photo(self, bot: TeleBot, from_user: int, id_hotel: str) -> bool:
         """
-        Функция поиска фотографий в выбранном отеле и сохранение результата в photos
+        Метод поиска фотографий в выбранном отеле и сохранение результата в photos
         :param bot: сам бот
         :param from_user: id пользователя
         :param id_hotel: id отеля
@@ -275,7 +272,7 @@ class User:
 
     def hotel_information(self, hotel: Dict[str, Any], find_number: int, currency_str: str) -> str:
         """
-        Функция сбора данных об отеле для вывода пользователю
+        Метод сбора данных об отеле для вывода пользователю
         :param self: текущий запрос
         :param hotel: словарь с данными об отеле
         :param find_number: порядковый номер найденного отеля
@@ -325,7 +322,7 @@ class User:
 
     def end_query(self, bot: TeleBot, from_user: int, end_message='Запрос выполнен, введите другую команду ') -> None:
         """
-        Функция завершения запроса и сохранения его в истории
+        Метод завершения запроса и сохранения его в истории
         :param bot: сам бот
         :param from_user: id пользователя
         :param end_message: сообщение для пользователя
@@ -353,7 +350,7 @@ class User:
 
     def user_keyboard(self, bot: TeleBot, from_user: int) -> None:
         """
-        Функция вывода клавиатуры с возможными вариантами найденных городов
+        Метод вывода клавиатуры с возможными вариантами найденных городов
         :param bot: сам бот
         :param from_user: id пользователя
         :return: None

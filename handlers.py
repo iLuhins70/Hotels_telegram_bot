@@ -7,8 +7,7 @@ from telegramcalendar import create_calendar
 
 
 @logger.catch
-def search(bot: TeleBot, message: Message, user_list: user_list,
-           from_user: int) -> None:
+def search(bot: TeleBot, message: Message, user_list: user_list, from_user: int) -> None:
     """
     Основная функция перераспределения запроса в зависимости от ответа пользователя и статуса запроса
     user_list[from_user].query.status:
@@ -76,8 +75,7 @@ def search(bot: TeleBot, message: Message, user_list: user_list,
 
 
 @logger.catch
-def name_city(message: Message, bot: TeleBot, user_list: user_list,
-              from_user: int) -> None:
+def name_city(message: Message, bot: TeleBot, user_list: user_list, from_user: int) -> None:
     """
     Функция запуска поиска города, вызывает метод класса запроса
     :param message: сообщение пользователя
@@ -90,8 +88,7 @@ def name_city(message: Message, bot: TeleBot, user_list: user_list,
 
 
 @logger.catch
-def delta_price(message: Message, bot: TeleBot, user_list: user_list,
-                from_user: int) -> None:
+def delta_price(message: Message, bot: TeleBot, user_list: user_list, from_user: int) -> None:
     """
     Функция ввода значений минимальной и максимальной стоимости проживания и проверка их на корректность
     :param message: сообщение пользователя
@@ -136,8 +133,7 @@ def delta_price(message: Message, bot: TeleBot, user_list: user_list,
 
 
 @logger.catch
-def delta_distance(message: Message, bot: TeleBot, user_list: user_list,
-                   from_user: int) -> None:
+def delta_distance(message: Message, bot: TeleBot, user_list: user_list, from_user: int) -> None:
     """
     Функция ввода значений минимального и максимального расстояния от центра города и проверка их на корректность
     :param message: сообщение пользователя
@@ -266,8 +262,7 @@ def photo_question(bot: TeleBot, from_user: int) -> None:
 
 
 @logger.catch
-def number_photo(message: Message, bot: TeleBot, user_list: user_list,
-                 from_user: int) -> None:
+def number_photo(message: Message, bot: TeleBot, user_list: user_list, from_user: int) -> None:
     """
     Функция ввода количества фотографий и проверка его на корректность
     :param message: сообщение пользователя
@@ -291,8 +286,7 @@ def number_photo(message: Message, bot: TeleBot, user_list: user_list,
 
 
 @logger.catch
-def search_hotel(bot: TeleBot, user_list: user_list,
-                 from_user: int) -> None:
+def search_hotel(bot: TeleBot, user_list: user_list, from_user: int) -> None:
     """
     Функция запуска необходимого запроса из методов класса запрос
     :param bot: сам бот
