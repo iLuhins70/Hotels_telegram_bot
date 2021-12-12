@@ -123,6 +123,8 @@ def text_input(message: Message, from_user: Optional[int] = None) -> None:
                                                              status=user_list[from_user].query.status))
                 else:
                     user_list[from_user].query.status -= 1
+                bot.send_message(from_user, 'Продолжим поиск. Вы ввели текст вместо нажатия кнопки. '
+                                            'Будьте внимательнее')
                 logger.info('Продолжим поиск.Пользователь id:{id} ввел текст вместо нажатия '
                             'кнопки.'.format(id=from_user))
             except apihelper.ApiTelegramException:

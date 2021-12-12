@@ -7,7 +7,7 @@ from telegramcalendar import create_calendar
 
 
 @logger.catch
-def search(bot: TeleBot, message: Message, user_list: user_list, from_user: int) -> None:
+def search(bot: TeleBot, message: Message, user_list: dict, from_user: int) -> None:
     """
     Основная функция перераспределения запроса в зависимости от ответа пользователя и статуса запроса
     user_list[from_user].query.status:

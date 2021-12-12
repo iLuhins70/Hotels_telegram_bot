@@ -175,9 +175,9 @@ class User:
         price_min = self.query.price['min']
         price_max = self.query.price['max']
         check_delta_days = self.query.date_range['delta_days']
-        if currency == 'RUB':
-            price_min = price_min * check_delta_days
-            price_max = price_max * check_delta_days
+        # if currency == 'USD':
+        #     price_min = price_min * check_delta_days
+        #     price_max = price_max * check_delta_days
         while len(self.query.hotels) < self.query.number_hotels:
             if pageNumber <= 10:
                 bot.send_message(from_user, 'Подождите, идет поиск вариантов. выполняем запрос № ' + str(pageNumber))
@@ -276,7 +276,7 @@ class User:
         :param self: текущий запрос
         :param hotel: словарь с данными об отеле
         :param find_number: порядковый номер найденного отеля
-        :param currency_str: строкое представление валюты
+        :param currency_str: строковое представление валюты
         :return: str
         """
         address_list = [x for x in
@@ -296,7 +296,7 @@ class User:
             str_days = 'суток'
         price_day = hotel['ratePlan']['price']['exactCurrent']
         price_all = price_day
-        if currency_str == 'USD':
+        if currency_str == '$':
             price_all = round(price_all * check_delta_days, 2)
         else:
             price_day = round(price_day / check_delta_days, 2)

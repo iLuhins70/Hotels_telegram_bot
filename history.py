@@ -44,7 +44,7 @@ def open_history(bot: TeleBot, user_list: Dict[int, User], from_user: int) -> No
 
 
 @logger.catch
-def load_history(user_list: Dict[int, User], from_user: int) -> bool:
+def load_history(user_list: user_list, from_user: int) -> bool:
     """
     Функция загрузки истории запросов пользователя из базы данных
     :param user_list: словарь пользователя
